@@ -4,8 +4,8 @@
 #include <fcntl.h>
 
 int checkIfDirectory(char* path); //sprawdza czy plik jest katalogiem
-int copySmallFile(char* sourceFilePath, char* destinationPath); //kopiuje maly plik normalnie
-int copyBigFile(char* sourceFilePath, char* destinationPath); //jak wielkosc pliku przekracza threshold to kopiujemy za pomocą mapowania
+int copySmallFile(char* sourceFilePath, char* destinationPath, unsigned int bufferSize); //kopiuje maly plik normalnie
+int copyBigFile(char* sourceFilePath, char* destinationPath, unsigned int bufferSize); //jak wielkosc pliku przekracza threshold to kopiujemy za pomocą mapowania
 int removeFile(char* filePath); //usuwa plik
 int handleSIGUSR1();
 
