@@ -7,10 +7,19 @@ int checkIfDirectory(char* path); //sprawdza czy plik jest katalogiem
 int copySmallFile(char* sourceFilePath, char* destinationPath, unsigned int bufferSize); //kopiuje maly plik normalnie
 int copyBigFile(char* sourceFilePath, char* destinationPath, unsigned int bufferSize); //jak wielkosc pliku przekracza threshold to kopiujemy za pomocą mapowania
 int removeFile(char* filePath); //usuwa plik
+int parseParameters(int argc, char **argv, char **source, char **destination, unsigned int *interval, char *recursive);
 int handleSIGUSR1();
 
 int main(int argc, char** argv)
 {
+    if(parseParameters(int argc, char **argv, char **source, char **destination, unsigned int *interval, char *recursive) != 0)
+    {
+        //zle
+    }
+    else
+    {
+        //dobrze
+    }
     //zrob tak jak Adam, czyli sprawdzanie czy masz dostep do pliku
     //czyli przechodzisz whilem przez pliki zrodlowego i patrzysz czy w docelowym masz access(path, F_OK)
     //i jak nie masz to znaczy ze trzeba skopiowac
