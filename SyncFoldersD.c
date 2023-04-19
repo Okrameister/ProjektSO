@@ -20,4 +20,7 @@ int main(int argc, char** argv)
 
     //trzeba przed tym zrobic sprawdzanie czy plik jest katalogiem czy plikiem, a jak jest katalogiem
     //to pomijamy go, a jak jest wlaczone -R to wtedy do katalogu wchodzimy i synchronizujemy go rekurencyjnie
+
+    //trzeba tez ogarnac co zrobic, zeby stal sie demonem - najpierw sprawdzic czy isDirectory docelową i zrodłową
+    //i jak nie ma bledow to trzeba zrobic z niego demona
 }
