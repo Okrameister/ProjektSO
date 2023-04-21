@@ -18,6 +18,7 @@ int handleSIGUSR1(); //zajmuje se sygnalem SIGUSR1
 
 //poniższe narazie bez parametrów
 
+int normalSync(); //Normalna synchronizacja (same pliki) 
 int setDate(); //Ustawianie daty docelowego na taką samą jak żródło
 int recursiveSync(); //-R jako rekurencyjna synchronizaja
 int copyDirectory(); //kopiuj katalog w przypadku -R
