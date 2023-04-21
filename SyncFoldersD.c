@@ -2,15 +2,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 
-//do zrobienia
-int checkIfDirectory(char *path); //sprawdza czy plik jest katalogiem
-//do dokonczenia
+//zrobione
+int isDirectoryValid(const char *path); //sprawdza czy plik jest katalogiem
+//do dokonczenia, obsługa bledow, wpisywanie do logow
 int copySmallFile(char *sourceFilePath, char *destinationPath, unsigned int bufferSize); //kopiuje maly plik normalnie
 //do zrobienia
 int copyBigFile(char *sourceFilePath, char *destinationPath, unsigned int bufferSize); //jak wielkosc pliku przekracza threshold to kopiujemy za pomocą mapowania
 //do zrobienia
-int removeFile(char *filePath); //usuwa plik
+int removeFile(const char *filePath); //usuwa plik
 //do zrobienia
 int parseParameters(int argc, char **argv, char *source, char *destination, unsigned int *interval, char *recursive); //sprawdza poprawnosc parametrow i je dobrze ustawia
 //do zrobienia
@@ -18,11 +19,16 @@ int handleSIGUSR1(); //zajmuje se sygnalem SIGUSR1
 
 //poniższe narazie bez parametrów
 
-int normalSync(); //Normalna synchronizacja (same pliki) 
-int setDate(); //Ustawianie daty docelowego na taką samą jak żródło
-int recursiveSync(); //-R jako rekurencyjna synchronizaja
-int copyDirectory(); //kopiuj katalog w przypadku -R
-int removeDirectory(); //usuń katalog z docelowego jak nie ma w źródłowym
+//do zrobienia
+int normalSync(); //Normalna synchronizacja (same pliki, katalogi pomijamy)
+//do zrobienia
+int setDate(); //Ustawianie daty modyfikacji pliku
+//do zrobienia
+int recursiveSync(); //-R jako rekurencyjna synchronizaja (synchronizujemy pliki i katalogi)
+//do zrobienia
+int recursiveCopyDirectory(); //kopiuj katalog w przypadku -R
+//do zrobienia
+int recursiveRemoveDirectory(); //usuń katalog z docelowego jak nie ma w źródłowym
 
 
 int main(int argc, char **argv)
@@ -51,6 +57,21 @@ int main(int argc, char **argv)
 
     // trzeba tez ogarnac co zrobic, zeby stal sie demonem - najpierw sprawdzic czy isDirectory docelową i zrodłową
     // i jak nie ma bledow to trzeba zrobic z niego demona
+}
+
+int isDirectoryValid(const char* path)
+{
+    DIR *dir = opendir(path); //otwieramy katalog
+    if(dir == NULL) //jezeli katalog nie istnieje zwracamy blad
+    {
+        return 1;
+    }
+    if(closedir(dir) != 0)
+    {
+        return 2; //jak zamykanie nie zwraca 0, to znaczy, ze jest blad
+    }
+
+    return 0;
 }
 
 int copySmallFile(char *sourceFilePath, char *destinationPath, unsigned int bufferSize)
@@ -89,4 +110,10 @@ int copySmallFile(char *sourceFilePath, char *destinationPath, unsigned int buff
     close(sourceFile);
     close(destinationFile);
     return 0;
+}
+
+int removeFile(const char* path)
+{
+  //remove zwraca 0, gdy nie ma bledow
+  return remove(path);
 }
