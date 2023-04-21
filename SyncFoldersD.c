@@ -28,20 +28,6 @@ int main(int argc, char **argv)
     {
         // dobrze
     }
-
-
-    // zrob tak jak Adam, czyli sprawdzanie czy masz dostep do pliku
-    // czyli przechodzisz whilem przez pliki zrodlowego i patrzysz czy w docelowym masz access(path, F_OK)
-    // i jak nie masz to znaczy ze trzeba skopiowac
-
-    // jezeli jest access do pliku w zrodlowym i docelowym to sprawdzamy czy ich daty sa takie same i jak sa to skip
-    // a jak nie, to usuwamy plik w docelowym i kopiujemy go ze zrodlowego
-
-    // trzeba przed tym zrobic sprawdzanie czy plik jest katalogiem czy plikiem, a jak jest katalogiem
-    // to pomijamy go, a jak jest wlaczone -R to wtedy do katalogu wchodzimy i synchronizujemy go rekurencyjnie
-
-    // trzeba tez ogarnac co zrobic, zeby stal sie demonem - najpierw sprawdzic czy isDirectory docelową i zrodłową
-    // i jak nie ma bledow to trzeba zrobic z niego demona
 }
 
 int copySmallFile(char *sourceFilePath, char *destinationPath, unsigned int bufferSize)
@@ -80,4 +66,8 @@ int copySmallFile(char *sourceFilePath, char *destinationPath, unsigned int buff
     close(sourceFile);
     close(destinationFile);
     return 0;
+}
+
+void test123{
+    printf("chuj");
 }
