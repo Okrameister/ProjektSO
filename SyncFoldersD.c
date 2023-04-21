@@ -1,9 +1,3 @@
-
-int main()
-{
-    printf("witam\n");
-    s
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
