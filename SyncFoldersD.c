@@ -16,6 +16,14 @@ int parseParameters(int argc, char **argv, char *source, char *destination, unsi
 //do zrobienia
 int handleSIGUSR1(); //zajmuje se sygnalem SIGUSR1
 
+//poniższe narazie bez parametrów
+
+int setDate(); //Ustawianie daty docelowego na taką samą jak żródło
+int recursiveSync(); //-R jako rekurencyjna synchronizaja
+int copyDirectory(); //kopiuj katalog w przypadku -R
+int removeDirectory(); //usuń katalog z docelowego jak nie ma w źródłowym
+
+
 int main(int argc, char **argv)
 {
     char *source, destination, recursive;
