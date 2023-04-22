@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,4 +24,11 @@ int main(int argc, char** argv)
 
     //trzeba tez ogarnac co zrobic, zeby stal sie demonem - najpierw sprawdzic czy isDirectory docelową i zrodłową
     //i jak nie ma bledow to trzeba zrobic z niego demona
+=======
+#include<stdlib.h>
+int main(){
+printf("hejka Dawid co tam u ciebie?");
+
+printf("siema Iza, wszystko w porządeczku, a co u Ciebie???")
+>>>>>>> 035aa158499086660fc875a1c5a0a1192c27afe8
 }
