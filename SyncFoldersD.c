@@ -43,7 +43,7 @@ int recursiveCopyDirectory(); //kopiuj katalog w przypadku -R
 int recursiveRemoveDirectory(); //usuń katalog z docelowego jak nie ma w źródłowym
 
 
-//prog kopiowania malych plikow - zmienna globalna
+//prog kopiowania malych plikow (defaultowo na ULONG_MAX) - zmienna globalna
 unsigned long int *threshold;
 
 int main(int argc, char **argv)
