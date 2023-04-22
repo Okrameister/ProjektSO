@@ -5,8 +5,9 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <limits.h>
 
-//zrobione
+//do dokonczenia, obsługa bledow, wpisywanie do logow
 int isDirectoryValid(const char *path); //sprawdza czy plik jest katalogiem
 
 //do dokonczenia, obsługa bledow, wpisywanie do logow
@@ -18,7 +19,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath, unsigned int buffer
 //zrobione
 int removeFile(const char *filePath); //usuwa plik
 
-//do zrobienia
+//do dokonczenia, obsługa bledow, wpisywanie do logow
 int parseParameters(int argc, char **argv, char *source, char *destination, unsigned int *interval, char *recursive); //sprawdza poprawnosc parametrow i je dobrze ustawia
 
 //do zrobienia
@@ -41,6 +42,9 @@ int recursiveCopyDirectory(); //kopiuj katalog w przypadku -R
 //do zrobienia
 int recursiveRemoveDirectory(); //usuń katalog z docelowego jak nie ma w źródłowym
 
+
+//prog kopiowania malych plikow - zmienna globalna
+unsigned long int *threshold;
 
 int main(int argc, char **argv)
 {
@@ -75,11 +79,11 @@ int isDirectoryValid(const char* path)
     DIR *dir = opendir(path); //otwieramy katalog
     if(dir == NULL) //jezeli katalog nie istnieje zwracamy blad
     {
-        return 1;
+        return -1;
     }
     if(closedir(dir) != 0)
     {
-        return 2; //jak zamykanie nie zwraca 0, to znaczy, ze jest blad
+        return -2; //jak zamykanie nie zwraca 0, to znaczy, ze jest blad
     }
 
     return 0;
@@ -136,7 +140,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
     if (sourceFile != 0)
     {
         //blad otwierania pliku zrodlowego
-        return 1;
+        return -1;
     }
 
     int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
@@ -146,7 +150,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
     {
         close(sourceFile);
         //blad otwierania pliku docelowego
-        return 2;
+        return -2;
     }
 
     // Pobierz rozmiar pliku źródłowego
@@ -155,7 +159,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
     {
         close(sourceFile);
         close(destinationFile);
-        return 3;
+        return -3;
     }
     // Zmapuj plik źródłowy w całości w pamięci
 	//[1]wartość NULL, to jądro może umieścić mapowanie w dowolnym miejscu, które uzna za stosowne.
@@ -172,7 +176,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
     {
         close(sourceFile);
         close(destinationFile);
-        return 4;
+        return -4;
     }
 
     if (write(destinationFile, sourceFileMemory, source.st_size) != 0) // Zapisanie zmapowanego pliku źródłowego do pliku docelowego
@@ -180,7 +184,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
         munmap(sourceFileMemory, source.st_size); //usuwanie zmapowanego regionu
         close(sourceFile);
         close(destinationFile);
-        return 5;
+        return -5;
     }
 
     // Zwolnienie zasobów
@@ -190,3 +194,82 @@ int copyBigFile(char *sourceFilePath, char *destinationPath,unsigned int bufferS
 
     return 0;
 }
+
+//sprawdza poprawnosc parametrow i je dobrze ustawia
+//argc liczba całkowita określająca liczbę argumentów wiersza poleceń,argv wskaźnik do tablicy reprezentującej argumenty wiersza poleceń.
+ int parseParameters(int argc, char** argv, char* source, char* destination, unsigned int* interval, char* recursive)
+{
+  // Jeżeli nie podano żadnych parametrów
+  if (argc <= 1)
+    // Zwracamy kod błędu.
+    return -1;
+  // Zapisujemy domyślny czas spania w sekundach równy 5*60 s = 5 min.
+  *interval = 5 * 60;
+  // Zapisujemy domyślny brak rekurencyjnej synchronizacji katalogów.
+  *recursive = 0;
+  // Zapisujemy domyślny próg dużego pliku równy maksymalnej wartości zmiennej typu unsigned int
+  *threshold = ULONG_MAX;
+  
+  // Sprawdzamy argumenty
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-R") == 0) {
+      *recursive = (char)1; // Ustawiamy rekurencyjną synchronizację katalogów.
+    }
+    else if (strcmp(argv[i], "-i") == 0) {
+      // Sprawdzamy czy kolejny argument zawiera wartość interwału
+      if (i + 1 < argc) {
+        *interval = argv[i+1];//Ustawiamy czas spania (trzeba zamienić na liczbę całkowitą]
+        i++;
+      }
+      else {
+        // Błąd: brak wartości spania
+        return -2;
+      }
+    }
+    else if (strcmp(argv[i], "-t") == 0) {
+      // Sprawdzamy czy kolejny argument zawiera wartość progu
+      if (i + 1 < argc) {
+        *threshold = argv[i+1]; //Ustawiamy próg (tu też)
+        i++;
+      }
+      else {
+        // Błąd: brak wartości progu
+        return -3;
+      }
+    }
+    // Jeśli nie jest tamtymi opcjami, to jest to ścieżka źródłowa lub docelowa
+    else {
+      // Sprawdzamy czy nie podano już ścieżki źródłowej
+      if (*source == NULL) {
+        *source = argv[i];
+      }
+      // Sprawdzamy czy nie podano już ścieżki docelowej
+      else if (*destination == NULL) {
+        *destination = argv[i];
+      }
+      else {
+        // Błąd: podano za dużo argumentów
+        return -4;
+      }
+    }
+  }
+  // Sprawdzamy czy podano obie ścieżki
+  if (*source == NULL || *destination == NULL) {
+    //brak jednej ze ścieżek
+    return -5;
+  }
+  if (isDirectoryValid(source)!=0)
+  {
+    //sprawdzamy czy katalog zrodlowy jest prawidlowy
+    return -6;//nie jestS
+  }
+  if (isDirectoryValid(destination)!=0)
+  {
+    //sprawdzamy czy katalog docelowy jest prawidlowy
+    return -7;//nie jest
+  }
+  
+  return 0;
+}
+
+
