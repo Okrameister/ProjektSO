@@ -2,6 +2,12 @@
 
 //TODO: WSZYSTKIE PRINTF ZAMIENIC NA WPISYWANIE DO LOGOW
 
+//TODO2: POROWNYWANIE DAT ZROBIC DOBRZE
+
+//TODO3: RecursiveSync
+
+//TODO4: SPRAWIĆ, ZEBY BYL FAKTYCZNYM DEMONEM
+
 int main(int argc, char **argv)
 {
     if (parseParameters(argc, argv) != 0)
@@ -281,7 +287,7 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
 {
     int sourceFile = open(sourceFilePath, O_RDONLY);
 
-    if (sourceFile != 0)
+    if (sourceFile == -1)
     {
         printCurrentDateAndTime();
         printf("copySmallFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
@@ -291,7 +297,7 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
     int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
     // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
 
-    if (destinationFile != 0)
+    if (destinationFile == -1)
     {
         close(sourceFile);
         printCurrentDateAndTime();
@@ -334,7 +340,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
 {
     int sourceFile = open(sourceFilePath, O_RDONLY);
 
-    if (sourceFile != 0)
+    if (sourceFile == -1)
     {
         printCurrentDateAndTime();
         printf("copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
@@ -344,7 +350,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
     int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
     // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
 
-    if (destinationFile != 0)
+    if (destinationFile == -1)
     {
         close(sourceFile);
         printCurrentDateAndTime();
