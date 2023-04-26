@@ -1,12 +1,11 @@
 #include "library.h"
+//TODO PO KOLEI:
 
-//TODO: WSZYSTKIE PRINTF ZAMIENIC NA WPISYWANIE DO LOGOW
+//TODO1: RecursiveSync
 
-//TODO2: POROWNYWANIE DAT ZROBIC DOBRZE
+//TODO2: SPRAWIĆ, ZEBY BYL FAKTYCZNYM DEMONEM
 
-//TODO3: RecursiveSync
-
-//TODO4: SPRAWIĆ, ZEBY BYL FAKTYCZNYM DEMONEM
+//TODO3: WSZYSTKIE PRINTF ZAMIENIC NA WPISYWANIE DO LOGOW
 
 int main(int argc, char **argv)
 {
@@ -141,7 +140,7 @@ int normalSync()
                     if(destinationEntry->d_type == DT_REG && strcmp(destinationEntry->d_name, sourceEntry->d_name) == 0)
                     {
                         //pobieramy informacje o pliku docelowym
-                        if (stat(destinationEntryPath, &sourceFileInfo) != 0)
+                        if (stat(destinationEntryPath, &destinationFileInfo) != 0)
 				        {
                             printCurrentDateAndTime();
 					        printf("normalSync: Błąd: Błąd przy pobieraniu informacji pliku docelowego %s\n", destinationEntryPath);
@@ -153,6 +152,9 @@ int normalSync()
                         //jezeli nie zgadzaja sie daty modyfikacji, to kopiujemy plik zrodlowy i ustawiamy odpowiednie daty
                         if (strcmp(sourceModificationTime, destinationModificationTime) != 0)
                         {
+                            printCurrentDateAndTime();
+                            printf("normalSync: Inna data modyfikacji pliku %s w katalogu docelowym\n", sourceEntryPath);
+
                             long int size = sourceFileInfo.st_size;
 	                        if(size <= threshold)
                             {
@@ -195,6 +197,10 @@ int normalSync()
 					printf("normalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
 					return -9;
 				}
+
+                printCurrentDateAndTime();
+                printf("normalSync: Plik %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
+
                 long int size = sourceFileInfo.st_size;
 	            if(size <= threshold)
                 {
@@ -247,6 +253,10 @@ int normalSync()
 				    printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
 				    return -14;
 			    }
+
+                printCurrentDateAndTime();
+                printf("normalSync: Plik %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
+
                 //usuwamy plik z katalogu docelowego
                 if(removeFile(destinationEntryPath) != 0)
                 {
