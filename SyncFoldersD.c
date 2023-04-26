@@ -39,11 +39,11 @@ void runDaemon()
 
         if(recursive == false)
         {
-            if(normalSync() != 0) return;
+            if(normalSync(source, destination) != 0) return;
         }
         else
         {
-            if(recursiveSync() != 0) return;
+            if(recursiveSync(source, destination) != 0) return;
         }
 
         printCurrentDateAndTime();
@@ -62,7 +62,7 @@ void clearBuffer(char* buffer)
     memset(buffer, '\0', len);
 }
 
-int normalSync()
+int normalSync(char* source, char* destination)
 {
     DIR* sourceDir = opendir(source);
     if(sourceDir == NULL)
@@ -106,7 +106,7 @@ int normalSync()
         //jezeli pozycja jest "zwyklym plikiem" to wchodzimy do ifa
         if(sourceEntry->d_type == DT_REG)
         {
-            //budowanie ściezki do pliku docelowego - przechowywana w sestinationEntryPath
+            //budowanie ściezki do pliku docelowego - przechowywana w destinationEntryPath
             if((snprintf(destinationEntryPath, PATH_MAX, "%s/%s", destination, sourceEntry->d_name) >= PATH_MAX))
             {
                 printCurrentDateAndTime();
@@ -116,7 +116,7 @@ int normalSync()
             //jezeli istnieje (mamy dostep) plik w katalogu docelowym (sciezka przechowana w destinationEntryPath)
             if(access(destinationEntryPath, F_OK) == 0)
             {
-                //Tworzymy sciezke do pliku w katalogu zrodolwymm, aby moc sprawdzic jego date i porownac z docelowym
+                //Tworzymy sciezke do pliku w katalogu zrodolwym, aby moc sprawdzic jego date i porownac z docelowym
                 if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", source, sourceEntry->d_name) >= PATH_MAX))
                 {
                     printCurrentDateAndTime();
@@ -273,9 +273,312 @@ int normalSync()
     return 0;
 }
 
-int recursiveSync()
+int recursiveSync(char* recSource, char* recDestination)
 {
+    DIR* sourceDir = opendir(recSource);
+    if(sourceDir == NULL)
+    {
+      printCurrentDateAndTime();
+      printf("recursiveSync: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
+      return -1;
+    }
 
+    DIR* destinationDir = opendir(recDestination);
+    if(destinationDir == NULL)
+    {
+      closedir(sourceDir);
+      printCurrentDateAndTime();
+      printf("recursiveSync: Błąd: błąd otwarcia katalogu docelowego %s\n", recDestination);
+      return -2;
+    }
+
+    //struktury do przechowywania danych pozycji katalogu
+    struct dirent* sourceEntry;
+    struct dirent* destinationEntry;
+
+    //bufory do przechowywania czasu modyfikacji plikow
+    char sourceModificationTime[30];
+    char destinationModificationTime[30];
+
+    //bufor do przechowania ścieżki danej pozycji w katalogu
+    char sourceEntryPath[PATH_MAX];
+    char destinationEntryPath[PATH_MAX];
+
+    //struktury do przechowywania informacji o plikach
+    struct stat sourceFileInfo;
+	struct stat destinationFileInfo;
+
+    //struktura do przechowywania czasu modyfikacji pliku
+    struct utimbuf sourceTime;
+
+    
+     //przechodzimy po wszystkich pozycjach w katalogu źródłowym
+    while((sourceEntry = readdir(sourceDir)) != NULL)
+    {
+        //jezeli pozycja jest "zwyklym plikiem" to wchodzimy do ifa
+        if(sourceEntry->d_type == DT_DIR)
+        {
+            //pominięcie folderów /. i /..
+            if(!strcmp(sourceEntry->d_name,".")||!strcmp(sourceEntry->d_name,"..")) continue;
+        
+            //budowanie ściezki do pliku docelowego - przechowywana w destinationEntryPath
+            if((snprintf(destinationEntryPath, PATH_MAX, "%s/%s", recDestination, sourceEntry->d_name) >= PATH_MAX))
+            {
+                printCurrentDateAndTime();
+                printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
+                return -3;
+            }
+            //jezeli istnieje (mamy dostep) plik w katalogu docelowym (sciezka przechowana w destinationEntryPath)
+            if(access(destinationEntryPath, F_OK) == 0)
+            {
+                //Tworzymy sciezke do pliku w katalogu zrodolwym, aby moc sprawdzic jego date i porownac z docelowym
+                if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, sourceEntry->d_name) >= PATH_MAX))
+                {
+                    printCurrentDateAndTime();
+                    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+                    return -4;
+                }
+                //Jezeli nie uda nam sie pobrac informacji (takich jak data) pliku zrodlowego
+               	if (stat(sourceEntryPath, &sourceFileInfo) != 0)
+				{
+                    printCurrentDateAndTime();
+					printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
+					return -5;
+				}
+                //ustawienie pod sourceModificationTime czasu modyfikacji pliku zrodlowego
+				strftime(sourceModificationTime, sizeof(sourceModificationTime), "%Y-%m-%d %H:%M:%S", localtime(&sourceFileInfo.st_mtime));
+
+                //szukamy odpowiedniego "zwyklego pliku" w katalogu docelowym
+                while((destinationEntry = readdir(destinationDir)) != NULL)
+                {
+                    //jezeli znajdziemy w katalogu docelowym plik o tym samym typie i nazwie to jestesmy pewni, ze to ten sam plik
+                    if(destinationEntry->d_type == DT_DIR && strcmp(destinationEntry->d_name, sourceEntry->d_name) == 0)
+                    {
+                        //pobieramy informacje o pliku docelowym
+                        if (stat(destinationEntryPath, &destinationFileInfo) != 0)
+				        {
+                            printCurrentDateAndTime();
+					        printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji pliku docelowego %s\n", destinationEntryPath);
+					        return -6;
+				        }
+                        //pobieramy date do destinationModificationTime
+                        strftime(destinationModificationTime, sizeof(destinationModificationTime), "%Y-%m-%d %H:%M:%S", localtime(&destinationFileInfo.st_mtime));
+
+                        //jezeli nie zgadzaja sie daty modyfikacji, to kopiujemy plik zrodlowy i ustawiamy odpowiednie daty
+                        if (strcmp(sourceModificationTime, destinationModificationTime) != 0)
+                        {
+                            printCurrentDateAndTime();
+                            printf("recursiveSync: Inna data modyfikacji pliku %s w katalogu docelowym\n", sourceEntryPath);
+
+                            //wywołanie rekursywnej synchronizacji dla obecnego katalogu
+                            recursiveSync(sourceEntryPath,destinationEntryPath);
+
+                            //pobranie czasów do ustawienia
+                            sourceTime.actime = sourceFileInfo.st_atime;
+                            sourceTime.modtime = sourceFileInfo.st_mtime;
+
+                            //ustawienie czasow dla pliku docelowego
+                            if (utime(destinationEntryPath, &sourceTime) != 0)
+							{	
+                                printCurrentDateAndTime();
+								printf("recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n",destinationEntryPath);
+								return -7;
+							}
+                        }
+                    }
+                }
+            } else {
+                //Tworzymy sciezke do pliku w katalogu zrodolwym, aby moc sprawdzic jego date i przypisac do przyszlego docelowego
+                if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, sourceEntry->d_name) >= PATH_MAX))
+                {
+                    printCurrentDateAndTime();
+                    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+                    return -8;
+                }
+                //Jezeli nie uda nam sie pobrac informacji (takich jak data) pliku zrodlowego
+               	if (stat(sourceEntryPath, &sourceFileInfo) != 0)
+				{
+                    printCurrentDateAndTime();
+					printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
+					return -9;
+				}
+
+                printCurrentDateAndTime();
+                printf("recursiveSync: Plik %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
+
+                recursiveCopyDirectory(sourceEntryPath, destinationEntryPath);
+
+                //pobranie czasów do ustawienia
+                sourceTime.actime = sourceFileInfo.st_atime;
+                sourceTime.modtime = sourceFileInfo.st_mtime;
+
+                //ustawienie czasow dla pliku docelowego
+                if (utime(destinationEntryPath, &sourceTime) != 0)
+				{	
+                    printCurrentDateAndTime();
+					printf("recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n", destinationEntryPath);
+					return -12;
+				}
+            }
+        }
+        clearBuffer(sourceEntryPath);
+        clearBuffer(destinationEntryPath);
+        clearBuffer(sourceModificationTime);
+        clearBuffer(destinationModificationTime);
+        rewinddir(destinationDir);
+    }
+    //TERAZ PRZECHODZIMY PO KATALOGU DOCELOWYM I USUWAMY PLIKI, KTORYCH NIE MA W ZRODLOWYM
+    while((destinationEntry = readdir(destinationDir)) != NULL)
+    {
+        //jezeli pozycja w docelowym jest zwyklym plikiem
+        if ((destinationEntry->d_type) == DT_DIR)
+        {
+            //budujemy sciezke do pliku w katalogu zrodlowym
+ 			if (snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, destinationEntry->d_name) >= PATH_MAX)
+			{
+                printCurrentDateAndTime();
+				printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+				return -13;
+			}
+            //jezeli nie istnieje taki plik w katalogu zrodlowym
+            if(access(sourceEntryPath, F_OK) != 0)
+            {
+                //budujemy sciezke do pliku w katalogu docelowym
+                if (snprintf(destinationEntryPath, PATH_MAX, "%s/%s", recDestination, destinationEntry->d_name) >= PATH_MAX)
+			    {
+                    printCurrentDateAndTime();
+				    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
+				    return -14;
+			    }
+
+                printCurrentDateAndTime();
+                printf("recursiveSync: Plik %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
+
+                //usuwamy plik z katalogu docelowego
+                if(recursiveRemoveDirectory(destinationEntryPath) != 0)
+                {
+                    return -15;
+                }
+            }           
+        }
+        clearBuffer(destinationEntryPath);
+        clearBuffer(sourceEntryPath);
+    }
+    closedir(sourceDir);
+    closedir(destinationDir);
+    
+    normalSync(recSource, recDestination);
+
+    return 0;
+
+}
+
+int recursiveCopyDirectory(char* recSource, char* recDestination)
+{
+    DIR* sourceDir = opendir(recSource);
+    if(sourceDir == NULL)
+    {
+      printCurrentDateAndTime();
+      printf("recursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
+      return -1;
+    }
+
+    //struktury do przechowywania danych pozycji katalogu
+    struct dirent* sourceEntry;
+    struct dirent* destinationEntry;
+    
+    //struktury do przechowywania informacji o pliku wejściowym
+    struct stat sourceFileInfo;
+
+    //tworzenie nowego katalogu
+    if(mkdir(recDestination, 0777)!=0){
+        printCurrentDateAndTime();
+        printf("recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s\n", recSource);
+    } else{
+        printCurrentDateAndTime();
+        printf("recursiveCopyDirectory: Stworzono katalog %s\n", recSource);
+    }
+
+    //przechodzimy po wszystkich pozycjach w katalogu źródłowym
+    while((sourceEntry = readdir(sourceDir)) != NULL)
+    {
+
+        //stworzenie pełnej ścieżki do pliku
+            char filePathSource[100];
+            strcpy(filePathSource, recSource);
+            strcat(filePathSource,"/");
+            strcat(filePathSource, sourceEntry->d_name);
+
+            char filePathDest[100];
+            strcpy(filePathDest, recDestination);
+            strcat(filePathDest,"/");
+            strcat(filePathDest, sourceEntry->d_name);
+
+        //jezeli pozycja jest "katalogiem" to wchodzimy do ifa
+        if(sourceEntry->d_type == DT_DIR)
+        {
+            //pominięcie folderów /. i /..
+            if(!strcmp(sourceEntry->d_name,".")||!strcmp(sourceEntry->d_name,"..")) continue;
+
+            recursiveCopyDirectory(filePathSource,filePathDest);
+
+        }else{
+            long int size = sourceFileInfo.st_size;
+            if(size <= threshold)
+            {
+                if(copySmallFile(filePathSource,filePathDest) != 0) return -7;
+            }
+            else
+            {
+                if(copyBigFile(filePathSource,filePathDest) != 0) return -8;
+            }
+        }
+    }
+}
+
+int recursiveRemoveDirectory(char* path)
+{
+    DIR* folderPath = opendir(path);
+    if(folderPath == NULL)
+    {
+      printCurrentDateAndTime();
+      printf("recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", path);
+      return -1;
+    }
+
+    //Struktura przechowuje dane pozycji w katalogu
+    struct dirent* pathEntry;
+
+    //przechodzimy po wszystkich pozycjach w katalogu źródłowym
+    while((pathEntry = readdir(folderPath)) != NULL)
+    {
+        //jezeli pozycja jest "katalogiem" to wchodzimy do ifa
+        if(pathEntry->d_type == DT_DIR)
+        {
+            //pominięcie folderów /. i /..
+            if(!strcmp(pathEntry->d_name,".")||!strcmp(pathEntry->d_name,"..")) continue;
+
+            //stworzenie pełnej ścieżki do pliku
+            char filePath[100];
+            strcpy(filePath, path);
+            strcat(filePath,"/");
+            strcat(filePath, pathEntry->d_name);
+
+            //rekursywne wejście do zagnieżdżonego folderu
+            recursiveRemoveDirectory(filePath);
+        }else{
+            //stworzenie pełnej ścieżki do pliku
+            char filePath[100];
+            strcpy(filePath, path);
+            strcat(filePath,"/");
+            strcat(filePath, pathEntry->d_name);
+            
+            //usunięcie pliku
+            removeFile(filePath);
+        }
+    }
+    removeFile(path);
+    return 0;
 }
 
 int isDirectoryValid(const char* path)
