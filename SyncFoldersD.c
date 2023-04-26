@@ -1,8 +1,6 @@
 #include "library.h"
 //TODO PO KOLEI:
 
-//TODO1: RecursiveSync
-
 //TODO2: SPRAWIĆ, ZEBY BYL FAKTYCZNYM DEMONEM
 
 //TODO3: WSZYSTKIE PRINTF ZAMIENIC NA WPISYWANIE DO LOGOW (w printCurrentDateAndTime zamienic printf na logi, bo ta funkcja idzie zawsze w parze z printf'em ponizej)
