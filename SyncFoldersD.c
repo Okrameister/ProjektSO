@@ -1,14 +1,23 @@
 #include "library.h"
-//TODO PO KOLEI:
-
-//TODO2: SPRAWIĆ, ZEBY BYL FAKTYCZNYM DEMONEM
-
-//TODO3: WSZYSTKIE PRINTF ZAMIENIC NA WPISYWANIE DO LOGOW (w printCurrentDateAndTime zamienic printf na logi, bo ta funkcja idzie zawsze w parze z printf'em ponizej)
 
 int main(int argc, char **argv)
 {
     //inicjalizacja systemu logów
     openlog("SyncFoldersD", LOG_ODELAY | LOG_PID, LOG_DAEMON);   
+
+    pid_t process_id = 0;
+    pid_t sid = 0;
+
+    //utworzenie procesu potomnego
+    process_id = fork();
+    if(process_id < 0){
+        printf("Błąd! Nie uruchomiono daemona!");
+        exit(1);
+    }
+    if(process_id > 0){
+        //kill dla procesu pierwotnego
+        exit(0);
+    }
 
     if (parseParameters(argc, argv) != 0)
     {
