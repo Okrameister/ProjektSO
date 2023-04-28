@@ -60,3 +60,5 @@ int recursiveSync(char* recSource, char* recDestination); //-R jako rekurencyjna
 int recursiveCopyDirectory(char* sourceEntryPath, char* destinationEntryPath); //kopiuj katalog w przypadku -R
 
 int recursiveRemoveDirectory(char* path); //usuń katalog z docelowego jak nie ma w źródłowym
+
+void clearBuffer(char* buffer); //czyści bufor z pamięci
