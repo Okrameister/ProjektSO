@@ -785,16 +785,17 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
 
     while(1)
     {
-        //jezeli zostala nam porcja danych < bufferSize to nastepne skopiowanie bedzie ostatnim
+        //jezeli zostala nam porcja danych < bufferSize to wiemy, że nastepne skopiowanie bedzie ostatnim
         if(nextByteIndex + bufferSize >= sourceFileInfo.st_size)
         {
-            //przypisujemy do zmiennej ilosc pozostalych bajtow
+            //przypisujemy do zmiennej ilosc pozostalych bajtow (normalnie kopiujac przypisujemy caly bufferSize,
+		//ale w tym przypadku wiemy, ze mamy mniej danych niz bufforSize wiec obliczamy je jako remainingBytes)
             size_t remainingBytes = sourceFileInfo.st_size - nextByteIndex;
 
             //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci remainingBytes
             memcpy(buffer, sourceFileMap + nextByteIndex, remainingBytes);
 
-            //zapisujemy od pierwszej ustalonej pozycji bajtu
+            //zapisujemy do pliku
             if (write(destinationFile, buffer, remainingBytes) == -1)
             {
                 munmap(sourceFileMap, sourceFileInfo.st_size);
@@ -813,7 +814,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
         //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci bufferSize
         memcpy(buffer, sourceFileMap + nextByteIndex, bufferSize);
 
-            //zapisujemy od pierwszej ustalonej pozycji bajtu
+            //zapisujemy do pliku
             if (write(destinationFile, buffer, bufferSize) == -1)
             {
                 munmap(sourceFileMap, sourceFileInfo.st_size);
