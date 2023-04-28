@@ -948,21 +948,21 @@ int parseParameters(int argc, char **argv)
         printCurrentDateAndTime();
         printf("parseParameters: Błąd: brak jednej ze ścieżek");
         syslog(LOG_ERR,"parseParameters: Błąd: brak jednej ze ścieżek");
-        return -5;
+        return -4;
     }
     if (isDirectoryValid(source) != 0)
     {
         printCurrentDateAndTime();
         printf("parseParameters: Błąd: nieprawidłowy katalog źródłowy %s", source);
         syslog(LOG_ERR,"parseParameters: Błąd: nieprawidłowy katalog źródłowy %s", source);
-        return -6; // nie jest
+        return -5; // nie jest
     }
     if (isDirectoryValid(destination) != 0)
     {
         printCurrentDateAndTime();
         printf("parseParameters: Błąd: nieprawidłowy katalog docelowy %s", destination);
         syslog(LOG_ERR,"parseParameters: Błąd: nieprawidłowy katalog docelowy %s", destination);
-        return -7; // nie jest
+        return -6; // nie jest
     }
 
     return 0;
