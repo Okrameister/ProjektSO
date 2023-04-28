@@ -11,7 +11,7 @@ int main(int argc, char **argv)
     //utworzenie procesu potomnego
     process_id = fork();
     if(process_id < 0){
-        printf("Błąd! Nie uruchomiono daemona!");
+        printf("\nBłąd! Nie uruchomiono daemona!\n");
         exit(1);
     }
     if(process_id > 0){
@@ -21,8 +21,8 @@ int main(int argc, char **argv)
 
     if (parseParameters(argc, argv) != 0)
     {
-        syslog(LOG_ERR, "Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania>] [-t <prog_kopiowania_duzego_pliku>] sciezka_zrodlowa sciezka_docelowa");
-        printf("Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania>] [-t <prog_kopiowania_duzego_pliku>] sciezka_zrodlowa sciezka_docelowa\n");
+        syslog(LOG_ERR, "Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania_w_sekundach>] [-t <prog_kopiowania_duzego_pliku_w_bajtach>] sciezka_zrodlowa sciezka_docelowa");
+        printf("\nNiepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania>] [-t <prog_kopiowania_duzego_pliku>] sciezka_zrodlowa sciezka_docelowa\n");
         return -1;
     }
 
@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     signal(SIGUSR1, handleSIGUSR1);
 
     //to zostaje printf'em! to jest printf dla uzytkownika, zeby znal PID
-    printf("PID procesu: %d\n", getpid());
+    printf("\nPID procesu: %d", getpid());
 
     //uruchomienie demona
     runDaemon();
@@ -43,15 +43,16 @@ int main(int argc, char **argv)
 
 void runDaemon()
 {
+    //podczas dziania Demona ignorujemy sygnal
+    signal(SIGUSR1, SIG_IGN);
     while(1)
     {
         if(forcedSync == false)
         {
             //jezeli Demon nie jest wybudzony sygnalem to piszemy, ze zostal wybudzony normalnie
             printCurrentDateAndTime();
-            printf("Demon budzi się\n");
+            printf("\nDemon budzi się");
             syslog(LOG_INFO,"Demon budzi się");
-
         }
 
         if(recursive == false)
@@ -64,8 +65,11 @@ void runDaemon()
         }
 
         printCurrentDateAndTime();
-        printf("Demon zasypia\n");
+        printf("\nDemon zasypia");
         syslog(LOG_INFO,"Demon zasypia");
+
+        //po uspieniu wznawiamy obsluge sygnalu
+        signal(SIGUSR1, handleSIGUSR1);
 
         forcedSync = false;
         sleep(interval);
@@ -86,7 +90,7 @@ int normalSync(char* source, char* destination)
     if(sourceDir == NULL)
     {
       printCurrentDateAndTime();
-      printf("normalSync: Błąd: błąd otwarcia katalogu żródłowego %s\n", source);
+      printf("\nnormalSync: Błąd: błąd otwarcia katalogu żródłowego %s\n", source);
       syslog(LOG_ERR,"normalSync: Błąd: błąd otwarcia katalogu żródłowego %s", source);
       return -1;
     }
@@ -96,7 +100,7 @@ int normalSync(char* source, char* destination)
     {
       closedir(sourceDir);
       printCurrentDateAndTime();
-      printf("normalSync: Błąd: błąd otwarcia katalogu docelowego %s\n", destination);
+      printf("\nnormalSync: Błąd: błąd otwarcia katalogu docelowego %s\n", destination);
       syslog(LOG_ERR,"normalSync: Błąd: błąd otwarcia katalogu docelowego %s", destination);
       return -2;
     }
@@ -130,7 +134,7 @@ int normalSync(char* source, char* destination)
             if((snprintf(destinationEntryPath, PATH_MAX, "%s/%s", destination, sourceEntry->d_name) >= PATH_MAX))
             {
                 printCurrentDateAndTime();
-                printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
+                printf("\nnormalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
                 syslog(LOG_ERR,"normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego");
                 return -3;
             }
@@ -141,7 +145,7 @@ int normalSync(char* source, char* destination)
                 if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", source, sourceEntry->d_name) >= PATH_MAX))
                 {
                     printCurrentDateAndTime();
-                    printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+                    printf("\nnormalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego");
                     return -4;
                 }
@@ -149,7 +153,7 @@ int normalSync(char* source, char* destination)
                	if (stat(sourceEntryPath, &sourceFileInfo) != 0)
 				{
                     printCurrentDateAndTime();
-					printf("normalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
+					printf("\nnormalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s", sourceEntryPath);
 					return -5;
 				}
@@ -166,7 +170,7 @@ int normalSync(char* source, char* destination)
                         if (stat(destinationEntryPath, &destinationFileInfo) != 0)
 				        {
                             printCurrentDateAndTime();
-					        printf("normalSync: Błąd: Błąd przy pobieraniu informacji pliku docelowego %s\n", destinationEntryPath);
+					        printf("\nnormalSync: Błąd: Błąd przy pobieraniu informacji pliku docelowego %s\n", destinationEntryPath);
                             syslog(LOG_ERR, "normalSync: Błąd: Błąd przy pobieraniu informacji pliku docelowego %s", destinationEntryPath);
 					        return -6;
 				        }
@@ -177,7 +181,7 @@ int normalSync(char* source, char* destination)
                         if (strcmp(sourceModificationTime, destinationModificationTime) != 0)
                         {
                             printCurrentDateAndTime();
-                            printf("normalSync: Inna data modyfikacji pliku %s w katalogu docelowym\n", sourceEntryPath);
+                            printf("\nnormalSync: Inna data modyfikacji pliku %s w katalogu docelowym\n", sourceEntryPath);
                             syslog(LOG_INFO,"normalSync: Inna data modyfikacji pliku %s w katalogu docelowym", sourceEntryPath);
 
                             long int size = sourceFileInfo.st_size;
@@ -198,7 +202,7 @@ int normalSync(char* source, char* destination)
                             if (utime(destinationEntryPath, &sourceTime) != 0)
 							{	
                                 printCurrentDateAndTime();
-								printf("normalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n",destinationEntryPath);
+								printf("\nnormalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n",destinationEntryPath);
                                 syslog(LOG_ERR,"normalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s",destinationEntryPath);
 								return -7;
 							}
@@ -213,7 +217,7 @@ int normalSync(char* source, char* destination)
                 if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", source, sourceEntry->d_name) >= PATH_MAX))
                 {
                     printCurrentDateAndTime();
-                    printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+                    printf("\nnormalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego");
                     return -8;
                 }
@@ -221,13 +225,13 @@ int normalSync(char* source, char* destination)
                	if (stat(sourceEntryPath, &sourceFileInfo) != 0)
 				{
                     printCurrentDateAndTime();
-					printf("normalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
+					printf("\nnormalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s\n", sourceEntryPath);
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s", sourceEntryPath);
 					return -9;
 				}
 
                 printCurrentDateAndTime();
-                printf("normalSync: Plik %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
+                printf("\nnormalSync: Plik %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
                 syslog(LOG_INFO,"normalSync: Plik %s nie istnieje w katalogu docelowym", sourceEntryPath);
 
                 long int size = sourceFileInfo.st_size;
@@ -248,7 +252,7 @@ int normalSync(char* source, char* destination)
                 if (utime(destinationEntryPath, &sourceTime) != 0)
 				{	
                     printCurrentDateAndTime();
-					printf("normalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n", destinationEntryPath);
+					printf("\nnormalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s\n", destinationEntryPath);
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy ustawieniu czasu modyfikacji pliku docelowego %s", destinationEntryPath);
 					return -12;
 				}
@@ -270,7 +274,7 @@ int normalSync(char* source, char* destination)
  			if (snprintf(sourceEntryPath, PATH_MAX, "%s/%s", source, destinationEntry->d_name) >= PATH_MAX)
 			{
                 printCurrentDateAndTime();
-				printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
+				printf("\nnormalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego\n");
                 syslog(LOG_ERR,"normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku źródłowego");
 				return -13;
 			}
@@ -281,13 +285,13 @@ int normalSync(char* source, char* destination)
                 if (snprintf(destinationEntryPath, PATH_MAX, "%s/%s", destination, destinationEntry->d_name) >= PATH_MAX)
 			    {
                     printCurrentDateAndTime();
-				    printf("normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
+				    printf("\nnormalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego\n");
                     syslog(LOG_ERR,"normalSync: Błąd: Błąd przy konstruowaniu ścieżki do pliku docelowego");
 				    return -14;
 			    }
 
                 printCurrentDateAndTime();
-                printf("normalSync: Plik %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
+                printf("\nnormalSync: Plik %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
                 syslog(LOG_INFO,"normalSync: Plik %s nie istnieje w katalogu źródłowym", destinationEntryPath);
 
                 //usuwamy plik z katalogu docelowego
@@ -312,7 +316,7 @@ int recursiveSync(char* recSource, char* recDestination)
     if(sourceDir == NULL)
     {
       printCurrentDateAndTime();
-      printf("recursiveSync: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
+      printf("\nrecursiveSync: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
       syslog(LOG_ERR,"recursiveSync: Błąd: błąd otwarcia katalogu żródłowego %s", recSource);
       return -1;
     }
@@ -322,7 +326,7 @@ int recursiveSync(char* recSource, char* recDestination)
     {
       closedir(sourceDir);
       printCurrentDateAndTime();
-      printf("recursiveSync: Błąd: błąd otwarcia katalogu docelowego %s\n", recDestination);
+      printf("\nrecursiveSync: Błąd: błąd otwarcia katalogu docelowego %s\n", recDestination);
       syslog(LOG_ERR,"recursiveSync: Błąd: błąd otwarcia katalogu docelowego %s", recDestination);
       return -2;
     }
@@ -360,7 +364,7 @@ int recursiveSync(char* recSource, char* recDestination)
             if((snprintf(destinationEntryPath, PATH_MAX, "%s/%s", recDestination, sourceEntry->d_name) >= PATH_MAX))
             {
                 printCurrentDateAndTime();
-                printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego\n");
+                printf("\nrecursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego\n");
                 syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego");
                 return -3;
             }
@@ -371,7 +375,7 @@ int recursiveSync(char* recSource, char* recDestination)
                 if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, sourceEntry->d_name) >= PATH_MAX))
                 {
                     printCurrentDateAndTime();
-                    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
+                    printf("\nrecursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
                     syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego");
                     return -4;
                 }
@@ -379,7 +383,7 @@ int recursiveSync(char* recSource, char* recDestination)
                	if (stat(sourceEntryPath, &sourceFileInfo) != 0)
 				{
                     printCurrentDateAndTime();
-					printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu źródłowego %s\n", sourceEntryPath);
+					printf("\nrecursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu źródłowego %s\n", sourceEntryPath);
 					syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy pobieraniu informacji pliku źródłowego %s", sourceEntryPath);
                     return -5;
 				}
@@ -396,7 +400,7 @@ int recursiveSync(char* recSource, char* recDestination)
                         if (stat(destinationEntryPath, &destinationFileInfo) != 0)
 				        {
                             printCurrentDateAndTime();
-					        printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu docelowego %s\n", destinationEntryPath);
+					        printf("\nrecursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu docelowego %s\n", destinationEntryPath);
 					        syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu docelowego %s", destinationEntryPath);
                             return -6;
 				        }
@@ -408,7 +412,7 @@ int recursiveSync(char* recSource, char* recDestination)
                         if (strcmp(sourceModificationTime, destinationModificationTime) != 0)
                         {
                             printCurrentDateAndTime();
-                            printf("recursiveSync: Inna data modyfikacji folderu %s w katalogu docelowym\n", sourceEntryPath);
+                            printf("\nrecursiveSync: Inna data modyfikacji folderu %s w katalogu docelowym\n", sourceEntryPath);
                             syslog(LOG_INFO,"recursiveSync: Inna data modyfikacji folderu %s w katalogu docelowym", sourceEntryPath);
 
                             //wywołanie rekursywnej synchronizacji dla obecnego katalogu
@@ -422,7 +426,7 @@ int recursiveSync(char* recSource, char* recDestination)
                             if (utime(destinationEntryPath, &sourceTime) != 0)
 							{	
                                 printCurrentDateAndTime();
-								printf("recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s\n",destinationEntryPath);
+								printf("\nrecursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s\n",destinationEntryPath);
 								syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s",destinationEntryPath);
                                 return -7;
 							}
@@ -434,7 +438,7 @@ int recursiveSync(char* recSource, char* recDestination)
                 if((snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, sourceEntry->d_name) >= PATH_MAX))
                 {
                     printCurrentDateAndTime();
-                    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
+                    printf("\nrecursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
                     syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego");
                     return -8;
                 }
@@ -443,12 +447,12 @@ int recursiveSync(char* recSource, char* recDestination)
                 if (stat(sourceEntryPath, &sourceFileInfo) != 0)
 				{
                     printCurrentDateAndTime();
-					printf("recursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu źródłowego %s\n", sourceEntryPath);
+					printf("\nrecursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu źródłowego %s\n", sourceEntryPath);
 					return -9;
 				}
 
                 printCurrentDateAndTime();
-                printf("recursiveSync: Folder %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
+                printf("\nrecursiveSync: Folder %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
                 syslog(LOG_INFO,"recursiveSync: Folder %s nie istnieje w katalogu docelowym", sourceEntryPath);
 
                 recursiveCopyDirectory(sourceEntryPath, destinationEntryPath);
@@ -461,7 +465,7 @@ int recursiveSync(char* recSource, char* recDestination)
                 if (utime(destinationEntryPath, &sourceTime) != 0)
 				{	
                     printCurrentDateAndTime();
-					printf("recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s\n", destinationEntryPath);
+					printf("\nrecursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s\n", destinationEntryPath);
 					syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy ustawieniu czasu modyfikacji katalogu docelowego %s", destinationEntryPath);
                     return -12;
 				}
@@ -484,7 +488,7 @@ int recursiveSync(char* recSource, char* recDestination)
  			if (snprintf(sourceEntryPath, PATH_MAX, "%s/%s", recSource, destinationEntry->d_name) >= PATH_MAX)
 			{
                 printCurrentDateAndTime();
-				printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
+				printf("\nrecursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego\n");
                 syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu źródłowego");
 				return -13;
 			}
@@ -495,20 +499,20 @@ int recursiveSync(char* recSource, char* recDestination)
                 if (snprintf(destinationEntryPath, PATH_MAX, "%s/%s", recDestination, destinationEntry->d_name) >= PATH_MAX)
 			    {
                     printCurrentDateAndTime();
-				    printf("recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego\n");
+				    printf("\nrecursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego\n");
                     syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy konstruowaniu ścieżki do katalogu docelowego");
 				    return -14;
 			    }
 
                 printCurrentDateAndTime();
-                printf("recursiveSync: Folder %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
+                printf("\nrecursiveSync: Folder %s nie istnieje w katalogu źródłowym\n", destinationEntryPath);
                 syslog(LOG_INFO,"recursiveSync: Folder %s nie istnieje w katalogu źródłowym", destinationEntryPath);
 
                 //usuwamy folder z katalogu docelowego
                 if(recursiveRemoveDirectory(destinationEntryPath) != 0)
                 {
                     printCurrentDateAndTime();
-                    printf("recursiveSync: Błąd: folder nie został usunięty z katalogu docelowego\n");
+                    printf("\nrecursiveSync: Błąd: folder nie został usunięty z katalogu docelowego\n");
                     syslog(LOG_INFO,"recursiveSync: Błąd: folder nie został usunięty z katalogu docelowego");
                     return -15;
                 }
@@ -532,7 +536,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
     if(sourceDir == NULL)
     {
       printCurrentDateAndTime();
-      printf("recursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
+      printf("\nrecursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", recSource);
       syslog(LOG_ERR,"recursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", recSource);
       return -1;
     }
@@ -547,11 +551,11 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
     //tworzenie nowego katalogu
     if(mkdir(recDestination, 0777)!=0){
         printCurrentDateAndTime();
-        printf("recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s\n", recSource);
+        printf("\nrecursiveCopyDirectory: Błąd: Nie stworzono katalogu %s\n", recSource);
         syslog(LOG_ERR,"recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s", recSource);
     } else{
         printCurrentDateAndTime();
-        printf("recursiveCopyDirectory: Stworzono katalog %s\n", recSource);
+        printf("\nrecursiveCopyDirectory: Stworzono katalog %s\n", recSource);
         syslog(LOG_INFO,"recursiveCopyDirectory: Stworzono katalog %s", recSource);
     }
 
@@ -600,7 +604,7 @@ int recursiveRemoveDirectory(char* path)
     if(folderPath == NULL)
     {
       printCurrentDateAndTime();
-      printf("recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", path);
+      printf("\nrecursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", path);
       syslog(LOG_ERR,"recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s\n", path);
       return -1;
     }
@@ -657,24 +661,24 @@ int isDirectoryValid(const char* path)
 
 int copySmallFile(char *sourceFilePath, char *destinationPath)
 {
-    int sourceFile = open(sourceFilePath, O_RDONLY);
+    int sourceFile = open(sourceFilePath, O_RDONLY, (mode_t)0700);
 
     if (sourceFile == -1)
     {
         printCurrentDateAndTime();
-        printf("copySmallFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
+        printf("\ncopySmallFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
         syslog(LOG_ERR,"copySmallFile: Błąd: błąd otwarcia pliku źródłowego %s", sourceFilePath);
         return -1;
     }
 
-    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
+    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, (mode_t)0700); // plik do zapisu, utworz jezeli nie istnieje,
     // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
 
     if (destinationFile == -1)
     {
         close(sourceFile);
         printCurrentDateAndTime();
-        printf("copySmallFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
+        printf("\ncopySmallFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
         syslog(LOG_ERR,"copySmallFile: Błąd: błąd otwarcia pliku docelowego %s", destinationPath);
         return -2;
     }
@@ -684,12 +688,20 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
     while (1)
     {
         unsigned int readFile = read(sourceFile, buffer, bufferSize); // czytamy z sourceFile
-        write(destinationFile, buffer, readFile); //zapisujemy do destinationFile
-        if (readFile < bufferSize)
-            break; //jezeli pobierzemy mniej danych niz mozemy to znaczy, ze to ostatnia porcja i wychodzimy z petli
+        if (write(destinationFile, buffer, readFile) == -1) //zapisujemy do destinationFile
+        {
+            free(buffer);
+            close(sourceFile);
+            close(destinationFile);
+            printCurrentDateAndTime();
+            printf("\ncopySmallFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+            syslog(LOG_ERR,"copySmallFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+            return -3;
+        }
+        if (readFile < bufferSize) break; //jezeli pobierzemy mniej danych niz mozemy to znaczy, ze to ostatnia porcja i wychodzimy z petli
     }
     printCurrentDateAndTime();
-    printf("copySmallFile: skopiowano plik %s\n", sourceFilePath);
+    printf("\ncopySmallFile: skopiowano plik %s\n", sourceFilePath);
     syslog(LOG_INFO,"copySmallFile: skopiowano plik %s", sourceFilePath);
 
     free(buffer);
@@ -703,12 +715,12 @@ int removeFile(const char* path)
   if(remove(path) != 0)
   {
       printCurrentDateAndTime();
-      printf("removeFile: Błąd: usuwanie pliku %s nie powiodło się\n", path);
+      printf("\nremoveFile: Błąd: usuwanie pliku %s nie powiodło się\n", path);
       syslog(LOG_ERR,"removeFile: Błąd: usuwanie pliku %s nie powiodło się", path);
       return -1;
   }
   printCurrentDateAndTime();
-  printf("removeFile: usunięto plik %s\n", path);
+  printf("\nremoveFile: usunięto plik %s\n", path);
   syslog(LOG_INFO,"removeFile: usunięto plik %s", path);
 
   return 0;
@@ -721,7 +733,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
     if (sourceFile == -1)
     {
         printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
+        printf("\ncopyBigFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
         syslog(LOG_INFO,"copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s", sourceFilePath);
         return -1;
     }
@@ -733,61 +745,98 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
     {
         close(sourceFile);
         printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
+        printf("\ncopyBigFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
         syslog(LOG_ERR,"copyBigFile: Błąd: błąd otwarcia pliku docelowego %s", destinationPath);
         return -2;
     }
 
-    // Pobierz rozmiar pliku źródłowego
-    struct stat source;
-    if (fstat(sourceFile, &source) != 0)
+    // Pobierz informacje o pliku zrodlowym (bedzie nas interesowal rozmiar .st_size)
+    struct stat sourceFileInfo;
+    if (fstat(sourceFile, &sourceFileInfo) != 0)
     {
         close(sourceFile);
         close(destinationFile);
         printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s\n", sourceFilePath);
+        printf("\ncopyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s\n", sourceFilePath);
         syslog(LOG_ERR,"copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s", sourceFilePath);
 
         return -3;
     }
-    // Zmapuj plik źródłowy w całości w pamięci
-	//[1]wartość NULL, to jądro może umieścić mapowanie w dowolnym miejscu, które uzna za stosowne.
-	//[2]liczba bajtów do zmapowania
-	//[3]rodzaj dostępu
-	//[4]mapowanie nie będzie widoczne dla żadnego innego procesu, a wprowadzone zmiany nie zostaną zapisane w pliku.
-	//[5]jaki plik
-	//[6]przesunięcie od miejsca, w którym rozpoczęło się mapowanie pliku.
-	//Po sukcesie mmmap() zwraca 0; w przypadku niepowodzenia funkcja zwraca MAP_FAILED.
 
-    char *sourceFileMemory = mmap(NULL, source.st_size, PROT_READ, MAP_PRIVATE, sourceFile, 0);
+    //mapowanie pliku wejsciowego do pamieci
+    char *sourceFileMap= mmap(0, sourceFileInfo.st_size, PROT_READ, MAP_SHARED | MAP_FILE, sourceFile, 0);
 
-    if (sourceFileMemory == MAP_FAILED) 
+    if (sourceFileMap== MAP_FAILED) 
     {
         close(sourceFile);
         close(destinationFile);
         printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
+        printf("\ncopyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
         syslog(LOG_ERR,"copyBigFile: Błąd: mapowanie pliku %s nie powiodło się", sourceFilePath);
         return -4;
     }
 
-    if (write(destinationFile, sourceFileMemory, source.st_size) != 0) // Zapisanie zmapowanego pliku źródłowego do pliku docelowego
+    //bufor do kopiowania
+    unsigned char *buffer = malloc(bufferSize);
+
+    // Numer bajtu w pliku źródłowym. Sluzy do sledzenia przejscia po pliku zmapowanym w pamieci
+    //zaczynamy od zera poniewaz kopiujemy od poczatku
+    unsigned long long nextByteIndex = 0;
+
+    while(1)
     {
-        munmap(sourceFileMemory, source.st_size); //usuwanie zmapowanego regionu
-        close(sourceFile);
-        close(destinationFile);
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
-        return -5;
+        //jezeli zostala nam porcja danych < bufferSize to wiemy, że nastepne skopiowanie bedzie ostatnim
+        if(nextByteIndex + bufferSize >= sourceFileInfo.st_size)
+        {
+            //przypisujemy do zmiennej ilosc pozostalych bajtow (normalnie kopiujac przypisujemy caly bufferSize,
+		//ale w tym przypadku wiemy, ze mamy mniej danych niz bufforSize wiec obliczamy je jako remainingBytes)
+            size_t remainingBytes = sourceFileInfo.st_size - nextByteIndex;
+
+            //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci remainingBytes
+            memcpy(buffer, sourceFileMap + nextByteIndex, remainingBytes);
+
+            //zapisujemy do pliku
+            if (write(destinationFile, buffer, remainingBytes) == -1)
+            {
+                munmap(sourceFileMap, sourceFileInfo.st_size);
+                close(sourceFile);
+                close(destinationFile);
+                printCurrentDateAndTime();
+                printf("\ncopyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+                syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+                return -5;
+            }
+
+            //wychodzmy z petli kopiujacej
+            break;
+        }
+        
+        //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci bufferSize
+        memcpy(buffer, sourceFileMap + nextByteIndex, bufferSize);
+
+            //zapisujemy do pliku
+            if (write(destinationFile, buffer, bufferSize) == -1)
+            {
+                munmap(sourceFileMap, sourceFileInfo.st_size);
+                close(sourceFile);
+                close(destinationFile);
+                printCurrentDateAndTime();
+                printf("\ncopyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+                syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+                return -5;
+            }
+
+        //zwiekszamy indeks nastepnego bajtu o bufforSize, zeby pozniej moc pobrac kolejn porcje
+        nextByteIndex += bufferSize;
     }
 
     printCurrentDateAndTime();
-    printf("copyBigFile: skopiowano plik %s\n", sourceFilePath);
+    printf("\ncopyBigFile: skopiowano plik %s\n", sourceFilePath);
     syslog(LOG_INFO,"copyBigFile: skopiowano plik %s", sourceFilePath);
 
     // Zwolnienie zasobów
-    munmap(sourceFileMemory, source.st_size);
+    free(buffer);
+    munmap(sourceFileMap, sourceFileInfo.st_size);
     close(sourceFile);
     close(destinationFile);
 
@@ -802,7 +851,7 @@ int parseParameters(int argc, char **argv)
     if (argc <= 1)
     {
         printCurrentDateAndTime();
-        printf("parseParameters: Błąd: nie podano wystarczająco argumentów\n");
+        printf("\nparseParameters: Błąd: nie podano wystarczająco argumentów\n");
         syslog(LOG_ERR,"parseParameters: Błąd: nie podano wystarczająco argumentów");
         return -1;
     }
@@ -833,7 +882,7 @@ int parseParameters(int argc, char **argv)
             else
             {
               printCurrentDateAndTime();
-              printf("parseParameters: Błąd: nie podano wartości czasu spania programu (-i)\n");    
+              printf("\nparseParameters: Błąd: nie podano wartości czasu spania programu (-i)\n");    
               syslog(LOG_ERR,"parseParameters: Błąd: nie podano wartości czasu spania programu (-i)");
               return -2;
             }
@@ -849,7 +898,7 @@ int parseParameters(int argc, char **argv)
             else
             {
               printCurrentDateAndTime();
-              printf("parseParameters: Błąd: nie podano wartości progu (-t)\n");
+              printf("\nparseParameters: Błąd: nie podano wartości progu (-t)\n");
               syslog(LOG_ERR,"parseParameters: Błąd: nie podano wartości progu (-t)");
               return -3;
             }
@@ -870,7 +919,7 @@ int parseParameters(int argc, char **argv)
             else
             {
               printCurrentDateAndTime();
-              printf("parseParameters: Błąd: podano za dużo argumentów\n");
+              printf("\nparseParameters: Błąd: podano za dużo argumentów\n");
               syslog(LOG_ERR,"parseParameters: Błąd: podano za dużo argumentów");
             }
         }
@@ -879,21 +928,21 @@ int parseParameters(int argc, char **argv)
     if (source == NULL || destination == NULL)
     {
         printCurrentDateAndTime();
-        printf("parseParameters: Błąd: brak jednej ze ścieżek\n");
+        printf("\nparseParameters: Błąd: brak jednej ze ścieżek\n");
         syslog(LOG_ERR,"parseParameters: Błąd: brak jednej ze ścieżek");
         return -5;
     }
     if (isDirectoryValid(source) != 0)
     {
         printCurrentDateAndTime();
-        printf("parseParameters: Błąd: nieprawidłowy katalog źródłowy %s\n", source);
+        printf("\nparseParameters: Błąd: nieprawidłowy katalog źródłowy %s\n", source);
         syslog(LOG_ERR,"parseParameters: Błąd: nieprawidłowy katalog źródłowy %s", source);
         return -6; // nie jest
     }
     if (isDirectoryValid(destination) != 0)
     {
         printCurrentDateAndTime();
-        printf("parseParameters: Błąd: nieprawidłowy katalog docelowy %s\n", destination);
+        printf("\nparseParameters: Błąd: nieprawidłowy katalog docelowy %s\n", destination);
         syslog(LOG_ERR,"parseParameters: Błąd: nieprawidłowy katalog docelowy %s", destination);
         return -7; // nie jest
     }
@@ -911,8 +960,7 @@ void printCurrentDateAndTime()
 void handleSIGUSR1()
 {
     printCurrentDateAndTime();
-    printf("Daemon wybudzony sygnałem SIGUSR1\n");
+    printf("\nDaemon wybudzony sygnałem SIGUSR1\n");
     syslog(LOG_INFO,"Daemon wybudzony sygnałem SIGUSR1");
     forcedSync = true;
 }
-
