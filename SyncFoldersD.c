@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 
     if (parseParameters(argc, argv) != 0)
     {
-        syslog(LOG_ERR, "Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania>] [-t <prog_kopiowania_duzego_pliku>] sciezka_zrodlowa sciezka_docelowa");
+        syslog(LOG_ERR, "Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania_w_sekundach>] [-t <prog_kopiowania_duzego_pliku_w_bajtach>] sciezka_zrodlowa sciezka_docelowa");
         printf("Niepoprawne argumenty - poprawna składnia: ./SyncFoldersD [-R] [-i <czas_spania>] [-t <prog_kopiowania_duzego_pliku>] sciezka_zrodlowa sciezka_docelowa\n");
         return -1;
     }
@@ -43,6 +43,8 @@ int main(int argc, char **argv)
 
 void runDaemon()
 {
+    //podczas dziania Demona ignorujemy sygnal
+    signal(SIGUSR1, SIG_IGN);
     while(1)
     {
         if(forcedSync == false)
@@ -66,6 +68,9 @@ void runDaemon()
         printCurrentDateAndTime();
         printf("Demon zasypia\n");
         syslog(LOG_INFO,"Demon zasypia");
+
+        //po uspieniu wznawiamy obsluge sygnalu
+        signal(SIGUSR1, handleSIGUSR1);
 
         forcedSync = false;
         sleep(interval);
@@ -656,7 +661,7 @@ int isDirectoryValid(const char* path)
 
 int copySmallFile(char *sourceFilePath, char *destinationPath)
 {
-    int sourceFile = open(sourceFilePath, O_RDONLY);
+    int sourceFile = open(sourceFilePath, O_RDONLY, (mode_t)0700);
 
     if (sourceFile == -1)
     {
@@ -666,7 +671,7 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
         return -1;
     }
 
-    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
+    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, (mode_t)0700); // plik do zapisu, utworz jezeli nie istnieje,
     // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
 
     if (destinationFile == -1)
@@ -689,8 +694,8 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
             close(sourceFile);
             close(destinationFile);
             printCurrentDateAndTime();
-            printf("copySmallFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
-            syslog(LOG_ERR,"copySmallFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+            printf("copySmallFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+            syslog(LOG_ERR,"copySmallFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
             return -3;
         }
         if (readFile < bufferSize) break; //jezeli pobierzemy mniej danych niz mozemy to znaczy, ze to ostatnia porcja i wychodzimy z petli
@@ -723,7 +728,128 @@ int removeFile(const char* path)
 
 int copyBigFile(char *sourceFilePath, char *destinationPath)
 {
-    
+    //otwarcie pliku zrodlowego do odczytu
+    int sourceFile = open(sourceFilePath, O_RDONLY);
+
+    if (sourceFile == -1)
+    {
+        printCurrentDateAndTime();
+        printf("copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
+        syslog(LOG_INFO,"copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s", sourceFilePath);
+        return -1;
+    }
+
+    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do zapisu, utworz jezeli nie istnieje,
+    // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
+
+    if (destinationFile == -1)
+    {
+        close(sourceFile);
+        printCurrentDateAndTime();
+        printf("copyBigFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
+        syslog(LOG_ERR,"copyBigFile: Błąd: błąd otwarcia pliku docelowego %s", destinationPath);
+        return -2;
+    }
+
+    // Pobierz informacje o pliku zrodlowym (bedzie nas interesowal rozmiar - .st_size)
+    struct stat sourceFileInfo;
+    if (fstat(sourceFile, &sourceFileInfo) != 0)
+    {
+        close(sourceFile);
+        close(destinationFile);
+        printCurrentDateAndTime();
+        printf("copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s\n", sourceFilePath);
+        syslog(LOG_ERR,"copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s", sourceFilePath);
+
+        return -3;
+    }
+
+    //mapowanie pliku wejsciowego do pamieci
+    char *sourceFileMap= mmap(0, sourceFileInfo.st_size, PROT_READ, MAP_SHARED | MAP_FILE, sourceFile, 0);
+
+    if (sourceFileMap== MAP_FAILED) 
+    {
+        close(sourceFile);
+        close(destinationFile);
+        printCurrentDateAndTime();
+        printf("copyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
+        syslog(LOG_ERR,"copyBigFile: Błąd: mapowanie pliku %s nie powiodło się", sourceFilePath);
+        return -4;
+    }
+
+    //bufor do kopiowania
+    unsigned char *buffer = malloc(bufferSize);
+
+    // Numer bajtu w pliku źródłowym.
+    unsigned long long b;
+    // Pozycja w buforze.
+    char *position;
+    size_t remainingBytes;
+    ssize_t bytesWritten;
+
+
+    for(b=0; (b + bufferSize) < sourceFileInfo.st_size; b += bufferSize)
+    {
+        memcpy(buffer, sourceFileMap + b, bufferSize);
+
+        position = buffer;
+
+        remainingBytes = bufferSize;
+
+        while(remainingBytes != 0 && bytesWritten != 0)
+        {
+            if ((bytesWritten = write(destinationFile, position, remainingBytes)) == -1)
+            {
+                munmap(sourceFileMap, sourceFileInfo.st_size);
+                close(sourceFile);
+                close(destinationFile);
+                printCurrentDateAndTime();
+                printf("copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+                syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+                return -5;
+            }
+
+            remainingBytes -= bytesWritten;
+
+            position += bytesWritten;
+        }
+    }
+
+    remainingBytes = sourceFileInfo.st_size - b;
+
+    memcpy(buffer, sourceFileMap + b, remainingBytes);
+
+    position = buffer;
+
+    while(remainingBytes != 0 && bytesWritten != 0)
+    {
+        if ((bytesWritten = write(destinationFile, position, remainingBytes)) == -1)
+        {
+            munmap(sourceFileMap, sourceFileInfo.st_size);
+            close(sourceFile);
+            close(destinationFile);
+            printCurrentDateAndTime();
+            printf("copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+             syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+            return -5;
+         }
+
+        remainingBytes -= bytesWritten;
+
+        position += bytesWritten;
+    }
+
+    printCurrentDateAndTime();
+    printf("copyBigFile: skopiowano plik %s\n", sourceFilePath);
+    syslog(LOG_INFO,"copyBigFile: skopiowano plik %s", sourceFilePath);
+
+    // Zwolnienie zasobów
+    free(buffer);
+    munmap(sourceFileMap, sourceFileInfo.st_size);
+    close(sourceFile);
+    close(destinationFile);
+
+    return 0;
 }
 
 //sprawdza poprawnosc parametrow i je dobrze ustawia
@@ -847,4 +973,3 @@ void handleSIGUSR1()
     syslog(LOG_INFO,"Daemon wybudzony sygnałem SIGUSR1");
     forcedSync = true;
 }
-
