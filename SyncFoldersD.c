@@ -683,9 +683,17 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
     while (1)
     {
         unsigned int readFile = read(sourceFile, buffer, bufferSize); // czytamy z sourceFile
-        write(destinationFile, buffer, readFile); //zapisujemy do destinationFile
-        if (readFile < bufferSize)
-            break; //jezeli pobierzemy mniej danych niz mozemy to znaczy, ze to ostatnia porcja i wychodzimy z petli
+        if (write(destinationFile, buffer, readFile) != 0) //zapisujemy do destinationFile
+        {
+            free(buffer);
+            close(sourceFile);
+            close(destinationFile);
+            printCurrentDateAndTime();
+            printf("copySmallFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+            syslog(LOG_ERR,"copySmallFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+            return -3;
+        }
+        if (readFile < bufferSize) break; //jezeli pobierzemy mniej danych niz mozemy to znaczy, ze to ostatnia porcja i wychodzimy z petli
     }
     printCurrentDateAndTime();
     printf("copySmallFile: skopiowano plik %s\n", sourceFilePath);
@@ -715,76 +723,7 @@ int removeFile(const char* path)
 
 int copyBigFile(char *sourceFilePath, char *destinationPath)
 {
-    int sourceFile = open(sourceFilePath, O_RDONLY);
-
-    if (sourceFile == -1)
-    {
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s\n", sourceFilePath);
-        syslog(LOG_INFO,"copyBigFile: Błąd: błąd otwarcia pliku źródłowego %s", sourceFilePath);
-        return -1;
-    }
-
-    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
-    // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
-
-    if (destinationFile == -1)
-    {
-        close(sourceFile);
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: błąd otwarcia pliku docelowego %s\n", destinationPath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: błąd otwarcia pliku docelowego %s", destinationPath);
-        return -2;
-    }
-
-    // Pobierz rozmiar pliku źródłowego
-    size_t sourceFileSize = lseek(sourceFile, 0, SEEK_END);
-
-    //zmapowanie pliku źródłowego
-    char* sourceFileMemory = mmap(NULL, sourceFileSize, PROT_READ, MAP_PRIVATE, sourceFile, 0);
-
-    if (sourceFileMemory == MAP_FAILED) 
-    {
-        close(sourceFile);
-        close(destinationFile);
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: mapowanie pliku %s nie powiodło się", sourceFilePath);
-        return -4;
-    }
-
-    //ustawienie/przycięcie wielkości pliku docelowego na wielkosc pliku zrodlowego
-    ftruncate(destinationFile, sourceFileSize);
-
-    //zmapowanie pliku docelowego
-    char* destinationFileMemory = mmap(NULL, sourceFileSize, PROT_READ | PROT_WRITE, MAP_SHARED, destinationFile, 0);
-
-    if (destinationFileMemory == MAP_FAILED) 
-    {
-        munmap(sourceFileMemory, sourceFileSize); //usuwanie zmapowanego regionu
-        close(sourceFile);
-        close(destinationFile);
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: mapowanie pliku %s nie powiodło się", sourceFilePath);
-        return -4;
-    }
-
-    //kopiowanie
-    memcpy(destinationFileMemory, sourceFileMemory, sourceFileSize);
-
-    printCurrentDateAndTime();
-    printf("copyBigFile: skopiowano plik %s\n", sourceFilePath);
-    syslog(LOG_INFO,"copyBigFile: skopiowano plik %s", sourceFilePath);
-
-    // Zwolnienie zasobów
-    munmap(sourceFileMemory, sourceFileSize);
-    munmap(destinationFileMemory, sourceFileSize);
-
-    close(sourceFile);
-    close(destinationFile);
-
-    return 0;
+    
 }
 
 //sprawdza poprawnosc parametrow i je dobrze ustawia
