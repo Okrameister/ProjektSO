@@ -688,7 +688,7 @@ int copySmallFile(char *sourceFilePath, char *destinationPath)
     while (1)
     {
         unsigned int readFile = read(sourceFile, buffer, bufferSize); // czytamy z sourceFile
-        if (write(destinationFile, buffer, readFile) != 0) //zapisujemy do destinationFile
+        if (write(destinationFile, buffer, readFile) == -1) //zapisujemy do destinationFile
         {
             free(buffer);
             close(sourceFile);
@@ -728,7 +728,6 @@ int removeFile(const char* path)
 
 int copyBigFile(char *sourceFilePath, char *destinationPath)
 {
-    //otwarcie pliku zrodlowego do odczytu
     int sourceFile = open(sourceFilePath, O_RDONLY);
 
     if (sourceFile == -1)
@@ -739,7 +738,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
         return -1;
     }
 
-    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do zapisu, utworz jezeli nie istnieje,
+    int destinationFile = open(destinationPath, O_WRONLY | O_CREAT | O_TRUNC, 0700); // plik do odczytu, utworz jezeli nie istnieje,
     // jezeli istnieje to wyczysc, uprawnienia rwx dla wlasciciela
 
     if (destinationFile == -1)
@@ -751,7 +750,7 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
         return -2;
     }
 
-    // Pobierz informacje o pliku zrodlowym (bedzie nas interesowal rozmiar - .st_size)
+    // Pobierz informacje o pliku zrodlowym (bedzie nas interesowal rozmiar .st_size)
     struct stat sourceFileInfo;
     if (fstat(sourceFile, &sourceFileInfo) != 0)
     {
@@ -780,25 +779,23 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
     //bufor do kopiowania
     unsigned char *buffer = malloc(bufferSize);
 
-    // Numer bajtu w pliku źródłowym.
-    unsigned long long b;
-    // Pozycja w buforze.
-    char *position;
-    size_t remainingBytes;
-    ssize_t bytesWritten;
+    // Numer bajtu w pliku źródłowym. Sluzy do sledzenia przejscia po pliku zmapowanym w pamieci
+    //zaczynamy od zera poniewaz kopiujemy od poczatku
+    unsigned long long nextByteIndex = 0;
 
-
-    for(b=0; (b + bufferSize) < sourceFileInfo.st_size; b += bufferSize)
+    while(1)
     {
-        memcpy(buffer, sourceFileMap + b, bufferSize);
-
-        position = buffer;
-
-        remainingBytes = bufferSize;
-
-        while(remainingBytes != 0 && bytesWritten != 0)
+        //jezeli zostala nam porcja danych < bufferSize to nastepne skopiowanie bedzie ostatnim
+        if(nextByteIndex + bufferSize >= sourceFileInfo.st_size)
         {
-            if ((bytesWritten = write(destinationFile, position, remainingBytes)) == -1)
+            //przypisujemy do zmiennej ilosc pozostalych bajtow
+            size_t remainingBytes = sourceFileInfo.st_size - nextByteIndex;
+
+            //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci remainingBytes
+            memcpy(buffer, sourceFileMap + nextByteIndex, remainingBytes);
+
+            //zapisujemy od pierwszej ustalonej pozycji bajtu
+            if (write(destinationFile, buffer, remainingBytes) == -1)
             {
                 munmap(sourceFileMap, sourceFileInfo.st_size);
                 close(sourceFile);
@@ -809,34 +806,27 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
                 return -5;
             }
 
-            remainingBytes -= bytesWritten;
-
-            position += bytesWritten;
+            //wychodzmy z petli kopiujacej
+            break;
         }
-    }
+        
+        //kopiujemy do bufora zmapowane dane od odpowiedniej pozycji (nextByteIndex) porcje danych o wielkosci bufferSize
+        memcpy(buffer, sourceFileMap + nextByteIndex, bufferSize);
 
-    remainingBytes = sourceFileInfo.st_size - b;
+            //zapisujemy od pierwszej ustalonej pozycji bajtu
+            if (write(destinationFile, buffer, bufferSize) == -1)
+            {
+                munmap(sourceFileMap, sourceFileInfo.st_size);
+                close(sourceFile);
+                close(destinationFile);
+                printCurrentDateAndTime();
+                printf("copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
+                syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
+                return -5;
+            }
 
-    memcpy(buffer, sourceFileMap + b, remainingBytes);
-
-    position = buffer;
-
-    while(remainingBytes != 0 && bytesWritten != 0)
-    {
-        if ((bytesWritten = write(destinationFile, position, remainingBytes)) == -1)
-        {
-            munmap(sourceFileMap, sourceFileInfo.st_size);
-            close(sourceFile);
-            close(destinationFile);
-            printCurrentDateAndTime();
-            printf("copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
-             syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
-            return -5;
-         }
-
-        remainingBytes -= bytesWritten;
-
-        position += bytesWritten;
+        //zwiekszamy indeks nastepnego bajtu o bufforSize, zeby pozniej moc pobrac kolejn porcje
+        nextByteIndex += bufferSize;
     }
 
     printCurrentDateAndTime();
