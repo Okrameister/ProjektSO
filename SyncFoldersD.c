@@ -400,6 +400,7 @@ int recursiveSync(char* recSource, char* recDestination)
 					        syslog(LOG_ERR,"recursiveSync: Błąd: Błąd przy pobieraniu informacji katalogu docelowego %s", destinationEntryPath);
                             return -6;
 				        }
+
                         //pobieramy date do destinationModificationTime
                         strftime(destinationModificationTime, sizeof(destinationModificationTime), "%Y-%m-%d %H:%M:%S", localtime(&destinationFileInfo.st_mtime));
 
