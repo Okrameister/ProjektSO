@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     signal(SIGUSR1, handleSIGUSR1);
 
     //to zostaje printf'em! to jest printf dla uzytkownika, zeby znal PID
-    printf("\nPID procesu: %d", getpid());
+    printf("\nPID procesu: %d\n", getpid());
 
     //uruchomienie demona
     runDaemon();
@@ -51,7 +51,7 @@ void runDaemon()
         {
             //jezeli Demon nie jest wybudzony sygnalem to piszemy, ze zostal wybudzony normalnie
             printCurrentDateAndTime();
-            printf("\nDemon budzi się");
+            printf("\nDemon budzi się\n");
             syslog(LOG_INFO,"Demon budzi się");
         }
 
@@ -65,7 +65,7 @@ void runDaemon()
         }
 
         printCurrentDateAndTime();
-        printf("\nDemon zasypia");
+        printf("\nDemon zasypia\n");
         syslog(LOG_INFO,"Demon zasypia");
 
         //po uspieniu wznawiamy obsluge sygnalu
@@ -416,7 +416,11 @@ int recursiveSync(char* recSource, char* recDestination)
                             syslog(LOG_INFO,"recursiveSync: Inna data modyfikacji folderu %s w katalogu docelowym", sourceEntryPath);
 
                             //wywołanie rekursywnej synchronizacji dla obecnego katalogu
-                            recursiveSync(sourceEntryPath,destinationEntryPath);
+                            if(recursiveSync(sourceEntryPath,destinationEntryPath)!=0){
+                                
+                                printf("rekursywa wyjebao");
+                                return -7; 
+                            }
 
                             //pobranie czasów do ustawienia
                             sourceTime.actime = sourceFileInfo.st_atime;
@@ -455,7 +459,13 @@ int recursiveSync(char* recSource, char* recDestination)
                 printf("\nrecursiveSync: Folder %s nie istnieje w katalogu docelowym\n", sourceEntryPath);
                 syslog(LOG_INFO,"recursiveSync: Folder %s nie istnieje w katalogu docelowym", sourceEntryPath);
 
-                recursiveCopyDirectory(sourceEntryPath, destinationEntryPath);
+                if(recursiveCopyDirectory(sourceEntryPath, destinationEntryPath)!=0){
+                    printCurrentDateAndTime();
+                    printf("katalog wyjebao");
+				    printf("\nrecursiveSync: Błąd: Nie skopiowano katalogu\n");
+                    syslog(LOG_ERR,"recursiveSync: Błąd: Nie skopiowano katalogu");
+				return -13;
+                }
 
                 //pobranie czasów do ustawienia
                 sourceTime.actime = sourceFileInfo.st_atime;
@@ -553,6 +563,8 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
         printCurrentDateAndTime();
         printf("\nrecursiveCopyDirectory: Błąd: Nie stworzono katalogu %s\n", recSource);
         syslog(LOG_ERR,"recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s", recSource);
+        return -1;
+        printf("567");
     } else{
         printCurrentDateAndTime();
         printf("\nrecursiveCopyDirectory: Stworzono katalog %s\n", recSource);
@@ -581,7 +593,10 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
             if(!strcmp(sourceEntry->d_name,".")||!strcmp(sourceEntry->d_name,"..")) continue;
             
             //rekurencyjne uruchomienie funkcji dla katalogu podrzędnego
-            recursiveCopyDirectory(filePathSource,filePathDest);
+            if(recursiveCopyDirectory(filePathSource,filePathDest)!=0){
+                return -7;
+                printf("598");
+            }
 
         }else{
             //kopiowanie zwykłego pliku do katalogu docelowego
@@ -596,6 +611,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
             }
         }
     }
+    return 0;
 }
 
 int recursiveRemoveDirectory(char* path)
@@ -628,7 +644,10 @@ int recursiveRemoveDirectory(char* path)
             strcat(filePath, pathEntry->d_name);
 
             //rekursywne wejście do zagnieżdżonego folderu
-            recursiveRemoveDirectory(filePath);
+            if(recursiveRemoveDirectory(filePath)!=0){
+                return -1;
+                printf("649");
+            }
         }else{
             //stworzenie pełnej ścieżki do pliku
             char filePath[100];
@@ -637,10 +656,17 @@ int recursiveRemoveDirectory(char* path)
             strcat(filePath, pathEntry->d_name);
             
             //usunięcie pliku
-            removeFile(filePath);
+            if(removeFile(filePath)!=0){
+                return -1;
+                printf("661");
+            }
         }
     }
-    removeFile(path);
+        //usunięcie bierzącego katalogu
+        if(removeFile(path)!=0){
+            return -1;
+            printf("668");
+        }
     return 0;
 }
 
