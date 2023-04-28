@@ -738,27 +738,10 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
     }
 
     // Pobierz rozmiar pliku źródłowego
-    struct stat source;
-    if (fstat(sourceFile, &source) != 0)
-    {
-        close(sourceFile);
-        close(destinationFile);
-        printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s\n", sourceFilePath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: nie udało się pobrać rozmiaru pliku źródłowego %s", sourceFilePath);
+    size_t sourceFileSize = lseek(sourceFile, 0, SEEK_END);
 
-        return -3;
-    }
-    // Zmapuj plik źródłowy w całości w pamięci
-	//[1]wartość NULL, to jądro może umieścić mapowanie w dowolnym miejscu, które uzna za stosowne.
-	//[2]liczba bajtów do zmapowania
-	//[3]rodzaj dostępu
-	//[4]mapowanie nie będzie widoczne dla żadnego innego procesu, a wprowadzone zmiany nie zostaną zapisane w pliku.
-	//[5]jaki plik
-	//[6]przesunięcie od miejsca, w którym rozpoczęło się mapowanie pliku.
-	//Po sukcesie mmmap() zwraca 0; w przypadku niepowodzenia funkcja zwraca MAP_FAILED.
-
-    char *sourceFileMemory = mmap(NULL, source.st_size, PROT_READ, MAP_PRIVATE, sourceFile, 0);
+    //zmapowanie pliku źródłowego
+    char* sourceFileMemory = mmap(NULL, sourceFileSize, PROT_READ, MAP_PRIVATE, sourceFile, 0);
 
     if (sourceFileMemory == MAP_FAILED) 
     {
@@ -770,23 +753,34 @@ int copyBigFile(char *sourceFilePath, char *destinationPath)
         return -4;
     }
 
-    if (write(destinationFile, sourceFileMemory, source.st_size) != 0) // Zapisanie zmapowanego pliku źródłowego do pliku docelowego
+    //ustawienie/przycięcie wielkości pliku docelowego na wielkosc pliku zrodlowego
+    ftruncate(destinationFile, sourceFileSize);
+
+    //zmapowanie pliku docelowego
+    char* destinationFileMemory = mmap(NULL, sourceFileSize, PROT_READ | PROT_WRITE, MAP_SHARED, destinationFile, 0);
+
+    if (destinationFileMemory == MAP_FAILED) 
     {
-        munmap(sourceFileMemory, source.st_size); //usuwanie zmapowanego regionu
+        munmap(sourceFileMemory, sourceFileSize); //usuwanie zmapowanego regionu
         close(sourceFile);
         close(destinationFile);
         printCurrentDateAndTime();
-        printf("copyBigFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się\n", sourceFilePath, destinationPath);
-        syslog(LOG_ERR,"copyBigFile: Błąd: zapisanie zmapowanego pliku źródłowego %s do pliku docelowego %s nie powiodło się", sourceFilePath, destinationPath);
-        return -5;
+        printf("copyBigFile: Błąd: mapowanie pliku %s nie powiodło się\n", sourceFilePath);
+        syslog(LOG_ERR,"copyBigFile: Błąd: mapowanie pliku %s nie powiodło się", sourceFilePath);
+        return -4;
     }
+
+    //kopiowanie
+    memcpy(destinationFileMemory, sourceFileMemory, sourceFileSize);
 
     printCurrentDateAndTime();
     printf("copyBigFile: skopiowano plik %s\n", sourceFilePath);
     syslog(LOG_INFO,"copyBigFile: skopiowano plik %s", sourceFilePath);
 
     // Zwolnienie zasobów
-    munmap(sourceFileMemory, source.st_size);
+    munmap(sourceFileMemory, sourceFileSize);
+    munmap(destinationFileMemory, sourceFileSize);
+
     close(sourceFile);
     close(destinationFile);
 
