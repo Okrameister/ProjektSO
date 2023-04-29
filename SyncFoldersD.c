@@ -617,7 +617,6 @@ int recursiveRemoveDirectory(char* path)
       printCurrentDateAndTime();
       printf("recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", path);
       syslog(LOG_ERR,"recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", path);
-      return -2;
     }
 
     //Struktura przechowuje dane pozycji w katalogu
@@ -978,7 +977,7 @@ void printCurrentDateAndTime()
 void handleSIGUSR1()
 {
     printCurrentDateAndTime();
-    printf("\nDaemon wybudzony sygnałem SIGUSR1");
-    syslog(LOG_INFO,"\nDaemon wybudzony sygnałem SIGUSR1");
+    printf("Daemon wybudzony sygnałem SIGUSR1");
+    syslog(LOG_INFO,"Daemon wybudzony sygnałem SIGUSR1");
     forcedSync = true;
 }
