@@ -545,7 +545,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
       printCurrentDateAndTime();
       printf("recursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", recSource);
       syslog(LOG_ERR,"recursiveCopyDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", recSource);
-      return -1;
+      return -2;
     }
 
     //struktury do przechowywania danych pozycji katalogu
@@ -560,7 +560,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
         printCurrentDateAndTime();
         printf("recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s", recSource);
         syslog(LOG_ERR,"recursiveCopyDirectory: Błąd: Nie stworzono katalogu %s", recSource);
-        return -1;
+        return -3;
     } else{
         printCurrentDateAndTime();
         printf("recursiveCopyDirectory: Stworzono katalog %s", recSource);
@@ -590,7 +590,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
             
             //rekurencyjne uruchomienie funkcji dla katalogu podrzędnego
             if(recursiveCopyDirectory(filePathSource,filePathDest)!=0){
-                return -7;
+                return -1;
             }
 
         }else{
@@ -598,11 +598,11 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
             long int size = sourceFileInfo.st_size;
             if(size <= threshold)
             {
-                if(copySmallFile(filePathSource,filePathDest) != 0) return -7;
+                if(copySmallFile(filePathSource,filePathDest) != 0) return -4;
             }
             else
             {
-                if(copyBigFile(filePathSource,filePathDest) != 0) return -8;
+                if(copyBigFile(filePathSource,filePathDest) != 0) return -5;
             }
         }
     }
