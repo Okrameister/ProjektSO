@@ -602,7 +602,7 @@ int recursiveCopyDirectory(char* recSource, char* recDestination)
             }
             else
             {
-                if(copyBigFile(filePathSource,filePathDest) != 0) return -5;
+                if(copyBigFile(filePathSource,filePathDest) != 0) return -5 ;
             }
         }
     }
@@ -617,7 +617,7 @@ int recursiveRemoveDirectory(char* path)
       printCurrentDateAndTime();
       printf("recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", path);
       syslog(LOG_ERR,"recursiveRemoveDirectory: Błąd: błąd otwarcia katalogu żródłowego %s", path);
-      return -1;
+      return -2;
     }
 
     //Struktura przechowuje dane pozycji w katalogu
@@ -651,13 +651,13 @@ int recursiveRemoveDirectory(char* path)
             
             //usunięcie pliku
             if(removeFile(filePath)!=0){
-                return -1;
+                return -3;
             }
         }
     }
         //usunięcie bierzącego katalogu
         if(removeFile(path)!=0){
-            return -1;
+            return -3;
         }
     return 0;
 }
