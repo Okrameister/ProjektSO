@@ -521,7 +521,7 @@ int recursiveSync(char* recSource, char* recDestination)
                     printCurrentDateAndTime();
                     printf("recursiveSync: Błąd: folder nie został usunięty z katalogu docelowego");
                     syslog(LOG_INFO,"recursiveSync: Błąd: folder nie został usunięty z katalogu docelowego");
-                    return -15;
+                    return -15; 
                 }
             }           
         }
